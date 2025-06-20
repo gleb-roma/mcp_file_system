@@ -95,6 +95,134 @@ Expected response:
 - Exclamation mark: `%21`
 - Quote: `%22`
 
+## Example: End-to-End File Operations
+
+Below are real, tested curl commands and their expected outputs for each endpoint. These demonstrate a typical workflow using the server:
+
+### 1. Write a file
+```bash
+curl -X POST 'http://localhost:8000/write?file_path=test.txt&content=Hello%20MCP!'
+```
+**Response:**
+```json
+{
+  "status": "success",
+  "path": "/tmp/mcp_file_system/test.txt",
+  "size": 10
+}
+```
+
+### 2. Read the file
+```bash
+curl -X POST 'http://localhost:8000/read?file_path=test.txt'
+```
+**Response:**
+```json
+{
+  "content": "Hello MCP!",
+  "path": "/tmp/mcp_file_system/test.txt",
+  "size": 10
+}
+```
+
+### 3. List files in the directory
+```bash
+curl -X GET 'http://localhost:8000/list?dir_path='
+```
+**Response:**
+```json
+{
+  "path": "/tmp/mcp_file_system",
+  "contents": [
+    {"name": "test.txt", "type": "file", "size": 10}
+  ]
+}
+```
+
+### 4. Copy the file
+```bash
+curl -X POST 'http://localhost:8000/copy?source_path=test.txt&destination_path=test_copy.txt'
+```
+**Response:**
+```json
+{
+  "status": "success",
+  "source": "/tmp/mcp_file_system/test.txt",
+  "destination": "/tmp/mcp_file_system/test_copy.txt",
+  "size": 10
+}
+```
+
+### 5. List files after copy
+```bash
+curl -X GET 'http://localhost:8000/list?dir_path='
+```
+**Response:**
+```json
+{
+  "path": "/tmp/mcp_file_system",
+  "contents": [
+    {"name": "test_copy.txt", "type": "file", "size": 10},
+    {"name": "test.txt", "type": "file", "size": 10}
+  ]
+}
+```
+
+### 6. Move (rename) the copied file
+```bash
+curl -X POST 'http://localhost:8000/move?source_path=test_copy.txt&destination_path=test_moved.txt'
+```
+**Response:**
+```json
+{
+  "status": "success",
+  "source": "/tmp/mcp_file_system/test_copy.txt",
+  "destination": "/tmp/mcp_file_system/test_moved.txt",
+  "size": 10
+}
+```
+
+### 7. List files after move
+```bash
+curl -X GET 'http://localhost:8000/list?dir_path='
+```
+**Response:**
+```json
+{
+  "path": "/tmp/mcp_file_system",
+  "contents": [
+    {"name": "test.txt", "type": "file", "size": 10},
+    {"name": "test_moved.txt", "type": "file", "size": 10}
+  ]
+}
+```
+
+### 8. Delete the moved file
+```bash
+curl -X DELETE 'http://localhost:8000/delete?file_path=test_moved.txt'
+```
+**Response:**
+```json
+{
+  "status": "success",
+  "message": "File test_moved.txt deleted successfully"
+}
+```
+
+### 9. List files after delete
+```bash
+curl -X GET 'http://localhost:8000/list?dir_path='
+```
+**Response:**
+```json
+{
+  "path": "/tmp/mcp_file_system",
+  "contents": [
+    {"name": "test.txt", "type": "file", "size": 10}
+  ]
+}
+```
+
 ## API Endpoints
 
 ### POST /write

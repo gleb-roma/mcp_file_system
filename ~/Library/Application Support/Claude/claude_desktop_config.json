@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "mcp-file-system": {
+      "command": "uv",
+      "args": [
+        "run",
+        "src/main.py"
+      ],
+      "cwd": "/Users/glebr/mcp_file_system"
+    }
+  }
+} 

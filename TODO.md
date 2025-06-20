@@ -4,7 +4,7 @@
 
 ### 1. Documentation
 - [ ] **README.md** - Complete project documentation
-  - [ ] Project description and purpose
+  - [x] Project description and purpose
   - [ ] Installation instructions
   - [ ] Quick start guide
   - [ ] API endpoint documentation
@@ -13,17 +13,17 @@
 
 ### 2. MCP Protocol Compliance
 - [ ] **Proper MCP Tool Definitions**
-  - [ ] Define MCP tools using the correct decorators
-  - [ ] Ensure tools are properly registered with the MCP server
-  - [ ] Test MCP protocol compliance
-  - [ ] Verify tools work with Claude Desktop
+  - [x] Define MCP tools using the correct decorators (`@mcp.tool()`)
+  - [x] Ensure tools are properly registered with the MCP server
+  - [x] Refactor server to use `stdio` transport
+  - [ ] **Verify tools work with Claude Desktop**
 
 ### 3. Request/Response Models
 - [ ] **Pydantic Schemas**
-  - [ ] Create request models for each endpoint
-  - [ ] Create response models for each endpoint
-  - [ ] Add input validation
-  - [ ] Add proper error response models
+  - [ ] Create request models for each endpoint (handled by `FastMCP` type hints)
+  - [ ] Create response models for each endpoint (string-based for now)
+  - [ ] Add input validation (handled by `FastMCP` type hints)
+  - [ ] Add proper error response models (currently returns error strings)
 
 ## 🔧 Medium Priority (Production Readiness)
 
@@ -162,14 +162,17 @@
 
 - **Total Tasks**: 19 categories
 - **Completed**: 0
-- **In Progress**: 0
-- **Remaining**: 19
+- **In Progress**: 1
+- **Remaining**: 18
 
 ## 🎯 Next Steps
 
-1. **Start with Documentation** (README.md) - This will help clarify the project's purpose and usage
-2. **Fix MCP Protocol Compliance** - This is core to the project's functionality
-3. **Add Request/Response Models** - This will improve API reliability and documentation
+1.  **~~Start with Documentation (README.md)~~** - DONE
+2.  **Fix MCP Protocol Compliance**
+    - **~~Refactor to `stdio` server~~** - DONE
+    - **Test the refactored server with Claude Desktop** - THIS IS THE CURRENT STEP
+3.  **Implement Configuration Management** - Use Pydantic Settings to manage `BASE_DIR`.
+4.  **Build a Testing Suite** - Add `pytest` to ensure reliability.
 
 ## 📝 Notes
 

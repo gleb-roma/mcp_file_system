@@ -1,13 +1,10 @@
-from fastapi import FastAPI, HTTPException
-from fastapi_mcp import FastApiMCP
-from pathlib import Path
 import os
+import shutil
+from pathlib import Path
+from mcp.server.fastmcp import FastMCP
 
-# Initialize FastAPI app
-app = FastAPI(title="File System MCP Server")
-
-# Initialize MCP server
-mcp = FastApiMCP(app)
+# Initialize FastMCP server
+mcp = FastMCP("mcp-file-system")
 
 # Base directory for file operations
 BASE_DIR = Path(os.getenv("MCP_FILE_SYSTEM_BASE_DIR", "/tmp/mcp_file_system"))
@@ -15,214 +12,149 @@ BASE_DIR = Path(os.getenv("MCP_FILE_SYSTEM_BASE_DIR", "/tmp/mcp_file_system"))
 # Ensure base directory exists
 BASE_DIR.mkdir(parents=True, exist_ok=True)
 
-# Mount the MCP server to the FastAPI app
-mcp.mount()
 
-@app.post("/read")
-async def read_file(file_path: str) -> dict:
+def _resolve_path(file_path: str) -> Path:
     """
-    Read the contents of a file.
-    
+    Resolves a file path against the base directory and performs security checks.
+    """
+    if ".." in Path(file_path).parts:
+        raise PermissionError("Path traversal is not allowed.")
+
+    absolute_path = (BASE_DIR / file_path).resolve()
+
+    if not absolute_path.is_relative_to(BASE_DIR.resolve()):
+        raise PermissionError("Access denied: Path is outside the allowed base directory.")
+
+    return absolute_path
+
+
+@mcp.tool()
+async def read_file(file_path: str) -> str:
+    """
+    Reads the contents of a file.
+
     Args:
-        file_path: Path to the file relative to the base directory
-        
-    Returns:
-        dict: File contents and metadata
+        file_path: Path to the file relative to the base directory.
     """
     try:
-        full_path = BASE_DIR / file_path
-        if not str(full_path).startswith(str(BASE_DIR)):
-            raise HTTPException(status_code=403, detail="Access denied: Path outside base directory")
-            
-        if not full_path.exists():
-            raise HTTPException(status_code=404, detail="File not found")
-            
-        with open(full_path, 'r') as f:
-            content = f.read()
-            
-        return {
-            "content": content,
-            "path": str(full_path),
-            "size": full_path.stat().st_size
-        }
+        path = _resolve_path(file_path)
+        if not path.is_file():
+            return f"Error: '{file_path}' is not a file or does not exist."
+        return path.read_text(encoding='utf-8')
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return f"Error reading file '{file_path}': {e}"
 
-@app.post("/write")
-async def write_file(file_path: str, content: str) -> dict:
+
+@mcp.tool()
+async def write_file(file_path: str, content: str) -> str:
     """
-    Write content to a file.
-    
+    Writes content to a file, creating directories if they don't exist and overwriting the file if it does.
+
     Args:
-        file_path: Path to the file relative to the base directory
-        content: Content to write to the file
-        
-    Returns:
-        dict: Operation status and file metadata
+        file_path: Path to the file relative to the base directory.
+        content: The content to write to the file.
     """
     try:
-        full_path = BASE_DIR / file_path
-        if not str(full_path).startswith(str(BASE_DIR)):
-            raise HTTPException(status_code=403, detail="Access denied: Path outside base directory")
-            
-        # Create parent directories if they don't exist
-        full_path.parent.mkdir(parents=True, exist_ok=True)
-        
-        with open(full_path, 'w') as f:
-            f.write(content)
-            
-        return {
-            "status": "success",
-            "path": str(full_path),
-            "size": full_path.stat().st_size
-        }
+        path = _resolve_path(file_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding='utf-8')
+        return f"Successfully wrote {len(content.encode('utf-8'))} bytes to '{file_path}'."
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return f"Error writing to file '{file_path}': {e}"
 
-@app.get("/list")
-async def list_directory(dir_path: str = "") -> dict:
+
+@mcp.tool()
+async def list_directory(directory_path: str = ".") -> str:
     """
-    List contents of a directory.
-    
+    Lists the contents of a directory.
+
     Args:
-        dir_path: Path to the directory relative to the base directory
-        
-    Returns:
-        dict: Directory contents and metadata
+        directory_path: Path to the directory relative to the base directory. Defaults to the base directory itself.
     """
     try:
-        full_path = BASE_DIR / dir_path
-        if not str(full_path).startswith(str(BASE_DIR)):
-            raise HTTPException(status_code=403, detail="Access denied: Path outside base directory")
-            
-        if not full_path.exists():
-            raise HTTPException(status_code=404, detail="Directory not found")
-            
-        if not full_path.is_dir():
-            raise HTTPException(status_code=400, detail="Path is not a directory")
-            
-        contents = []
-        for item in full_path.iterdir():
-            contents.append({
-                "name": item.name,
-                "type": "directory" if item.is_dir() else "file",
-                "size": item.stat().st_size if item.is_file() else None
-            })
-            
-        return {
-            "path": str(full_path),
-            "contents": contents
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        path = _resolve_path(directory_path)
+        if not path.is_dir():
+            return f"Error: '{directory_path}' is not a directory."
 
-@app.delete("/delete")
-async def delete_file(file_path: str) -> dict:
+        items = []
+        for item in sorted(path.iterdir()):
+            item_type = "DIR" if item.is_dir() else "FILE"
+            items.append(f"{item_type:4s} {item.name}")
+
+        if not items:
+            return f"Directory '{path.relative_to(BASE_DIR)}' is empty."
+
+        return f"Contents of '{path.relative_to(BASE_DIR)}':\n" + "\n".join(items)
+    except Exception as e:
+        return f"Error listing directory '{directory_path}': {e}"
+
+
+@mcp.tool()
+async def delete_file(file_path: str) -> str:
     """
-    Delete a file.
-    
+    Deletes a file. This cannot delete directories.
+
     Args:
-        file_path: Path to the file relative to the base directory
-        
-    Returns:
-        dict: Operation status
+        file_path: Path to the file to delete, relative to the base directory.
     """
     try:
-        full_path = BASE_DIR / file_path
-        if not str(full_path).startswith(str(BASE_DIR)):
-            raise HTTPException(status_code=403, detail="Access denied: Path outside base directory")
-            
-        if not full_path.exists():
-            raise HTTPException(status_code=404, detail="File not found")
-            
-        if not full_path.is_file():
-            raise HTTPException(status_code=400, detail="Path is not a file")
-            
-        full_path.unlink()
-        return {
-            "status": "success",
-            "message": f"File {file_path} deleted successfully"
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/move")
-async def move_file(source_path: str, destination_path: str) -> dict:
-    """
-    Move or rename a file.
-    
-    Args:
-        source_path: Path to the source file relative to the base directory
-        destination_path: Path to the destination relative to the base directory
+        path = _resolve_path(file_path)
+        if not path.exists():
+            return f"Error: File '{file_path}' not found."
+        if not path.is_file():
+            return f"Error: Path '{file_path}' is a directory, not a file. Use a different tool to delete directories."
         
-    Returns:
-        dict: Operation status and new file metadata
+        path.unlink()
+        return f"Successfully deleted file '{file_path}'."
+    except Exception as e:
+        return f"Error deleting file '{file_path}': {e}"
+
+
+@mcp.tool()
+async def move_file(source_path: str, destination_path: str) -> str:
+    """
+    Moves or renames a file.
+
+    Args:
+        source_path: The path of the file to move.
+        destination_path: The new path for the file.
     """
     try:
-        source_full = BASE_DIR / source_path
-        dest_full = BASE_DIR / destination_path
+        source = _resolve_path(source_path)
+        destination = _resolve_path(destination_path)
         
-        if not str(source_full).startswith(str(BASE_DIR)) or not str(dest_full).startswith(str(BASE_DIR)):
-            raise HTTPException(status_code=403, detail="Access denied: Path outside base directory")
-            
-        if not source_full.exists():
-            raise HTTPException(status_code=404, detail="Source file not found")
-            
-        if not source_full.is_file():
-            raise HTTPException(status_code=400, detail="Source path is not a file")
-            
-        # Create parent directories if they don't exist
-        dest_full.parent.mkdir(parents=True, exist_ok=True)
+        if not source.exists():
+            return f"Error: Source path '{source_path}' does not exist."
         
-        source_full.rename(dest_full)
-        return {
-            "status": "success",
-            "source": str(source_full),
-            "destination": str(dest_full),
-            "size": dest_full.stat().st_size
-        }
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(source), str(destination))
+        return f"Successfully moved '{source_path}' to '{destination_path}'."
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return f"Error moving file: {e}"
 
-@app.post("/copy")
-async def copy_file(source_path: str, destination_path: str) -> dict:
+
+@mcp.tool()
+async def copy_file(source_path: str, destination_path: str) -> str:
     """
-    Copy a file.
-    
+    Copies a file.
+
     Args:
-        source_path: Path to the source file relative to the base directory
-        destination_path: Path to the destination relative to the base directory
-        
-    Returns:
-        dict: Operation status and new file metadata
+        source_path: The path of the file to copy.
+        destination_path: The path to copy the file to.
     """
     try:
-        source_full = BASE_DIR / source_path
-        dest_full = BASE_DIR / destination_path
-        
-        if not str(source_full).startswith(str(BASE_DIR)) or not str(dest_full).startswith(str(BASE_DIR)):
-            raise HTTPException(status_code=403, detail="Access denied: Path outside base directory")
+        source = _resolve_path(source_path)
+        destination = _resolve_path(destination_path)
+
+        if not source.is_file():
+            return f"Error: Source '{source_path}' is not a file."
             
-        if not source_full.exists():
-            raise HTTPException(status_code=404, detail="Source file not found")
-            
-        if not source_full.is_file():
-            raise HTTPException(status_code=400, detail="Source path is not a file")
-            
-        # Create parent directories if they don't exist
-        dest_full.parent.mkdir(parents=True, exist_ok=True)
-        
-        import shutil
-        shutil.copy2(source_full, dest_full)
-        return {
-            "status": "success",
-            "source": str(source_full),
-            "destination": str(dest_full),
-            "size": dest_full.stat().st_size
-        }
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+        return f"Successfully copied '{source_path}' to '{destination_path}'."
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return f"Error copying file: {e}"
+
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    mcp.run(transport='stdio')
