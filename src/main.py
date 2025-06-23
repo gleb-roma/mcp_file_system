@@ -20,12 +20,17 @@ def _resolve_path(file_path: str) -> Path:
     if ".." in Path(file_path).parts:
         raise PermissionError("Path traversal is not allowed.")
 
-    absolute_path = (BASE_DIR / file_path).resolve()
+    # Resolve both paths to absolute paths for comparison
+    base_dir_abs = BASE_DIR.resolve()
+    target_path = (BASE_DIR / file_path).resolve()
 
-    if not absolute_path.is_relative_to(BASE_DIR.resolve()):
+    # Check if the target path is within the base directory
+    try:
+        target_path.relative_to(base_dir_abs)
+    except ValueError:
         raise PermissionError("Access denied: Path is outside the allowed base directory.")
 
-    return absolute_path
+    return target_path
 
 
 @mcp.tool()

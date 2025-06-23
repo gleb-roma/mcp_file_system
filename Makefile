@@ -1,11 +1,23 @@
-.PHONY: run clean
+.PHONY: run clean test install
 
 # Default target
 all: run
 
-# Run the server in development mode with auto-reload
+# Run the MCP server
 run:
-	uv run uvicorn src.main:app --reload
+	uv run src/main.py
+
+# Run the server in development mode
+dev:
+	uv run --reload src/main.py
+
+# Install dependencies
+install:
+	uv sync
+
+# Test the server
+test:
+	uv run python -c "import src.main; print('Server imports successfully')"
 
 # Clean up Python cache files
 clean:
@@ -25,6 +37,9 @@ clean:
 # Help target
 help:
 	@echo "Available targets:"
-	@echo "  run    - Start the server in development mode with auto-reload"
+	@echo "  run    - Start the MCP server"
+	@echo "  dev    - Start the server in development mode with auto-reload"
+	@echo "  install- Install dependencies"
+	@echo "  test   - Test server imports"
 	@echo "  clean  - Remove Python cache files and build artifacts"
 	@echo "  help   - Show this help message" 

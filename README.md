@@ -1,369 +1,91 @@
 # MCP File System Server
 
-A Model Context Protocol (MCP) server for secure file system operations, built with FastAPI and Python. This server provides file operations (read, write, list, delete, move, copy) with security restrictions to limit access to a specific base directory.
+A Model Context Protocol (MCP) server that provides secure file system operations through a sandboxed environment.
 
 ## Features
 
-- **Secure File Operations**: Read, write, list, delete, move, and copy files
-- **Path Security**: All operations are restricted to a configurable base directory
-- **FastAPI Integration**: Modern async web framework with automatic API documentation
-- **MCP Protocol**: Designed to work with Claude Desktop and other MCP clients
-- **Easy Testing**: Built-in Swagger UI for interactive API testing
+- **Secure File Operations**: All operations are confined to a configurable base directory
+- **Path Traversal Protection**: Prevents access to files outside the allowed directory
+- **Comprehensive Tools**: Read, write, list, delete, move, and copy files
+- **Error Handling**: Robust error handling with informative messages
 
 ## Installation
 
-### Prerequisites
-
-- Python 3.11 or higher
-- `uv` package manager (recommended)
-
-### Setup
-
-1. Clone the repository:
+1. Install dependencies:
 ```bash
-git clone <your-repo-url>
-cd mcp_file_system
+make install
 ```
 
-2. Install dependencies using `uv`:
+2. Set the base directory (optional):
 ```bash
-uv sync
+export MCP_FILE_SYSTEM_BASE_DIR="/path/to/your/sandbox"
 ```
 
 ## Usage
 
-### Starting the Server
-
-Start the server in development mode with auto-reload:
+### Running the Server
 
 ```bash
 make run
 ```
 
-Or manually:
+Or directly:
 ```bash
-uv run uvicorn src.main:app --reload
+uv run src/main.py
 ```
 
-The server will start on `http://127.0.0.1:8000`
+### Available Tools
 
-### Testing the Server
-
-#### 1. Check if the server is running
-
-```bash
-curl -X GET http://localhost:8000/docs
-```
-
-This should return the Swagger UI HTML page.
-
-#### 2. View available endpoints
-
-```bash
-curl -X GET http://localhost:8000/openapi.json | jq '.paths | keys'
-```
-
-Expected output:
-```json
-[
-  "/copy",
-  "/delete", 
-  "/list",
-  "/move",
-  "/read",
-  "/write"
-]
-```
-
-#### 3. Test the write endpoint
-
-```bash
-curl -X POST 'http://localhost:8000/write?file_path=test.txt&content=Hello%20MCP!'
-```
-
-Expected response:
-```json
-{
-  "status": "success",
-  "path": "/tmp/mcp_file_system/test.txt",
-  "size": 10
-}
-```
-
-**Note**: Use URL encoding for special characters in the content parameter. For example:
-- Space: `%20`
-- Exclamation mark: `%21`
-- Quote: `%22`
-
-## Example: End-to-End File Operations
-
-Below are real, tested curl commands and their expected outputs for each endpoint. These demonstrate a typical workflow using the server:
-
-### 1. Write a file
-```bash
-curl -X POST 'http://localhost:8000/write?file_path=test.txt&content=Hello%20MCP!'
-```
-**Response:**
-```json
-{
-  "status": "success",
-  "path": "/tmp/mcp_file_system/test.txt",
-  "size": 10
-}
-```
-
-### 2. Read the file
-```bash
-curl -X POST 'http://localhost:8000/read?file_path=test.txt'
-```
-**Response:**
-```json
-{
-  "content": "Hello MCP!",
-  "path": "/tmp/mcp_file_system/test.txt",
-  "size": 10
-}
-```
-
-### 3. List files in the directory
-```bash
-curl -X GET 'http://localhost:8000/list?dir_path='
-```
-**Response:**
-```json
-{
-  "path": "/tmp/mcp_file_system",
-  "contents": [
-    {"name": "test.txt", "type": "file", "size": 10}
-  ]
-}
-```
-
-### 4. Copy the file
-```bash
-curl -X POST 'http://localhost:8000/copy?source_path=test.txt&destination_path=test_copy.txt'
-```
-**Response:**
-```json
-{
-  "status": "success",
-  "source": "/tmp/mcp_file_system/test.txt",
-  "destination": "/tmp/mcp_file_system/test_copy.txt",
-  "size": 10
-}
-```
-
-### 5. List files after copy
-```bash
-curl -X GET 'http://localhost:8000/list?dir_path='
-```
-**Response:**
-```json
-{
-  "path": "/tmp/mcp_file_system",
-  "contents": [
-    {"name": "test_copy.txt", "type": "file", "size": 10},
-    {"name": "test.txt", "type": "file", "size": 10}
-  ]
-}
-```
-
-### 6. Move (rename) the copied file
-```bash
-curl -X POST 'http://localhost:8000/move?source_path=test_copy.txt&destination_path=test_moved.txt'
-```
-**Response:**
-```json
-{
-  "status": "success",
-  "source": "/tmp/mcp_file_system/test_copy.txt",
-  "destination": "/tmp/mcp_file_system/test_moved.txt",
-  "size": 10
-}
-```
-
-### 7. List files after move
-```bash
-curl -X GET 'http://localhost:8000/list?dir_path='
-```
-**Response:**
-```json
-{
-  "path": "/tmp/mcp_file_system",
-  "contents": [
-    {"name": "test.txt", "type": "file", "size": 10},
-    {"name": "test_moved.txt", "type": "file", "size": 10}
-  ]
-}
-```
-
-### 8. Delete the moved file
-```bash
-curl -X DELETE 'http://localhost:8000/delete?file_path=test_moved.txt'
-```
-**Response:**
-```json
-{
-  "status": "success",
-  "message": "File test_moved.txt deleted successfully"
-}
-```
-
-### 9. List files after delete
-```bash
-curl -X GET 'http://localhost:8000/list?dir_path='
-```
-**Response:**
-```json
-{
-  "path": "/tmp/mcp_file_system",
-  "contents": [
-    {"name": "test.txt", "type": "file", "size": 10}
-  ]
-}
-```
-
-## API Endpoints
-
-### POST /write
-Write content to a file.
-
-**Parameters:**
-- `file_path` (query): Path to the file relative to the base directory
-- `content` (query): Content to write to the file
-
-**Example:**
-```bash
-curl -X POST 'http://localhost:8000/write?file_path=example.txt&content=Hello%20World!'
-```
-
-### POST /read
-Read the contents of a file.
-
-**Parameters:**
-- `file_path` (query): Path to the file relative to the base directory
-
-**Example:**
-```bash
-curl -X POST 'http://localhost:8000/read?file_path=example.txt'
-```
-
-### GET /list
-List contents of a directory.
-
-**Parameters:**
-- `dir_path` (query, optional): Path to the directory relative to the base directory
-
-**Example:**
-```bash
-curl -X GET 'http://localhost:8000/list?dir_path='
-```
-
-### DELETE /delete
-Delete a file.
-
-**Parameters:**
-- `file_path` (query): Path to the file relative to the base directory
-
-**Example:**
-```bash
-curl -X DELETE 'http://localhost:8000/delete?file_path=example.txt'
-```
-
-### POST /move
-Move or rename a file.
-
-**Parameters:**
-- `source_path` (query): Path to the source file relative to the base directory
-- `destination_path` (query): Path to the destination relative to the base directory
-
-**Example:**
-```bash
-curl -X POST 'http://localhost:8000/move?source_path=old.txt&destination_path=new.txt'
-```
-
-### POST /copy
-Copy a file.
-
-**Parameters:**
-- `source_path` (query): Path to the source file relative to the base directory
-- `destination_path` (query): Path to the destination relative to the base directory
-
-**Example:**
-```bash
-curl -X POST 'http://localhost:8000/copy?source_path=original.txt&destination_path=backup.txt'
-```
+- `read_file(file_path: str)` - Read file contents
+- `write_file(file_path: str, content: str)` - Write content to file
+- `list_directory(directory_path: str)` - List directory contents
+- `delete_file(file_path: str)` - Delete a file
+- `move_file(source_path: str, destination_path: str)` - Move/rename a file
+- `copy_file(source_path: str, destination_path: str)` - Copy a file
 
 ## Configuration
 
-### Base Directory
+The server uses the `MCP_FILE_SYSTEM_BASE_DIR` environment variable to set the base directory for all file operations. If not set, it defaults to `/tmp/mcp_file_system`.
 
-The server restricts all file operations to a base directory for security. By default, this is set to `/tmp/mcp_file_system`.
+## Security
 
-You can change this by setting the `MCP_FILE_SYSTEM_BASE_DIR` environment variable:
+- All paths are resolved relative to the base directory
+- Path traversal attacks (using `..`) are prevented
+- Access outside the base directory is blocked
+- File operations are sandboxed
 
+## Testing
+
+Test that the server imports correctly:
 ```bash
-export MCP_FILE_SYSTEM_BASE_DIR=/path/to/your/directory
-make run
+make test
 ```
 
 ## Development
 
-### Project Structure
-
-```
-mcp_file_system/
-├── src/
-│   ├── __init__.py
-│   ├── main.py          # Main FastAPI application
-│   ├── file_ops.py      # File operation utilities
-│   └── security.py      # Security and validation functions
-├── pyproject.toml       # Project dependencies and metadata
-├── Makefile            # Development commands
-├── TODO.md             # Development roadmap
-└── README.md           # This file
-```
-
-### Available Make Commands
-
-- `make run` - Start the server in development mode
-- `make clean` - Clean up Python cache files
-- `make help` - Show available commands
-
-## Security Considerations
-
-- All file operations are restricted to the configured base directory
-- Path traversal attacks are prevented by validating all paths
-- The server runs on localhost by default for development
-
-## Testing with Claude Desktop
-
-This MCP server is designed to work with Claude Desktop. To connect:
-
-1. Ensure the server is running on `http://localhost:8000`
-2. In Claude Desktop, add the MCP server with the appropriate configuration
-3. The server will provide file system tools that Claude can use
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Port already in use**: Change the port in the Makefile or use a different port
-2. **Permission denied**: Ensure the base directory is writable
-3. **Curl hangs**: Use proper URL encoding for special characters in parameters
-
-### Debug Mode
-
-For detailed logging, you can run the server with debug output:
-
+Run in development mode with auto-reload:
 ```bash
-uv run uvicorn src.main:app --reload --log-level debug
+make dev
 ```
 
-## License
+## Integration with Claude Desktop
 
-[Add your license information here]
+To use this server with Claude Desktop, add the following to your `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
-## Contributing
+```json
+{
+  "mcpServers": {
+    "file-system": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/ABSOLUTE/PATH/TO/mcp_file_system",
+        "run",
+        "src/main.py"
+      ]
+    }
+  }
+}
+```
 
-[Add contribution guidelines here]
+Replace `/ABSOLUTE/PATH/TO/mcp_file_system` with the actual absolute path to your project directory.

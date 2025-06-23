@@ -154,18 +154,10 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "mcp", extra = ["cli"] },
-    { name = "pydantic" },
-    { name = "python-dotenv" },
-    { name = "python-multipart" },
 ]
 
 [package.metadata]
-requires-dist = [
-    { name = "mcp", extras = ["cli"], specifier = ">=1.9.2" },
-    { name = "pydantic", specifier = ">=2.4.2" },
-    { name = "python-dotenv", specifier = ">=1.0.0" },
-    { name = "python-multipart", specifier = ">=0.0.6" },
-]
+requires-dist = [{ name = "mcp", extras = ["cli"], specifier = ">=1.9.2" }]
 
 [[package]]
 name = "mdurl"

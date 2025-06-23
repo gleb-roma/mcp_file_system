@@ -5,9 +5,6 @@ description = "MCP server for secure file system operations"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "python-multipart>=0.0.6",
-    "pydantic>=2.4.2",
-    "python-dotenv>=1.0.0",
     "mcp[cli]>=1.9.2"
 ]
 
