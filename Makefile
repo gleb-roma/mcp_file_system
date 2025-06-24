@@ -5,11 +5,11 @@ all: run
 
 # Run the MCP server
 run:
-	uv run src/main.py
+	uv run main.py
 
 # Run the server in development mode
 dev:
-	uv run --reload src/main.py
+	uv run --reload main.py
 
 # Install dependencies
 install:
@@ -17,7 +17,7 @@ install:
 
 # Test the server
 test:
-	uv run python -c "import src.main; print('Server imports successfully')"
+	uv run python -c "import main; print('Server imports successfully')"
 
 # Clean up Python cache files
 clean:

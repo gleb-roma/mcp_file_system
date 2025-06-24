@@ -3,10 +3,11 @@
     "mcp-file-system": {
       "command": "uv",
       "args": [
+        "--directory",
+        "/Users/glebr/mcp_file_system",
         "run",
-        "src/main.py"
-      ],
-      "cwd": "/Users/glebr/mcp_file_system"
+        "main.py"
+      ]
     }
   }
 } 

@@ -6,7 +6,7 @@ import asyncio
 import tempfile
 import os
 from pathlib import Path
-from src.main import read_file, write_file, list_directory, delete_file, move_file, copy_file
+from main import read_file, write_file, list_directory, delete_file, move_file, copy_file
 
 async def test_file_operations():
     """Test all file operations"""
