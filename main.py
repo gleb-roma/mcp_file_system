@@ -87,9 +87,20 @@ async def list_directory(directory_path: str = ".") -> str:
             items.append(f"{item_type:4s} {item.name}")
 
         if not items:
-            return f"Directory '{path.relative_to(BASE_DIR)}' is empty."
+            # Use a safer way to get the relative path
+            try:
+                relative_path = path.relative_to(BASE_DIR.resolve())
+            except ValueError:
+                relative_path = str(path)
+            return f"Directory '{relative_path}' is empty."
 
-        return f"Contents of '{path.relative_to(BASE_DIR)}':\n" + "\n".join(items)
+        # Use a safer way to get the relative path
+        try:
+            relative_path = path.relative_to(BASE_DIR.resolve())
+        except ValueError:
+            relative_path = str(path)
+        
+        return f"Contents of '{relative_path}':\n" + "\n".join(items)
     except Exception as e:
         return f"Error listing directory '{directory_path}': {e}"
 
